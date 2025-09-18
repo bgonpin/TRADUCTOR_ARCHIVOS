@@ -72,13 +72,15 @@
     <h3>Script GUI 1: 1-extraer_texto_a mongodb_con_gui.py</h3>
     <p>Esta aplicación con interfaz gráfica permite una experiencia más intuitiva para extraer texto a MongoDB:</p>
     <ul>
-        <li>Interfaz gráfica construida con PySide6 para selección manual de archivos de texto.</li>
+        <li>Interfaz gráfica construida con PySide6 para selección manual de archivos de texto y PDF.</li>
+        <li>Soporte múltiple de formatos: archivos .txt (texto plano) y .pdf (documentos PDF).</li>
         <li>Selección de archivos mediante un diálogo de archivos nativo del sistema operativo.</li>
         <li>Procesamiento en segundo plano usando hilos para evitar bloqueo de la interfaz.</li>
         <li>Barra de progreso visual que muestra el porcentaje de procesamiento completado.</li>
         <li>Botón de cancelación para interrumpir el proceso en cualquier momento.</li>
         <li>Manejo de errores con mensajes informativos al usuario.</li>
         <li>Tema oscuro profesional para mayor comodidad visual.</li>
+        <li>Validación de archivos compatibles antes del procesamiento.</li>
         <li>Muestra el nombre del archivo seleccionado y mensajes de estado en tiempo real.</li>
     </ul>
 
@@ -131,7 +133,8 @@
     <ul>
         <li>Todas las dependencias de la versión CLI.</li>
         <li><strong>PySide6</strong>: <code>pip install PySide6</code> (cuando se elige Qt6) ó <strong>PyQt6</strong>: <code>pip install PyQt6</code> (alternativa Qt6)</li>
-        <li><strong>ReportLab</strong> instalado (requerido para exportar a PDF en script 3): <code>pip install reportlab</code></li>
+        <li><strong>ReportLab</strong> instalado (requerido para exportar a PDF en script 3-componer.py): <code>pip install reportlab</code></li>
+        <li><strong>PyPDF2</strong> instalado (requerido para soporte de PDF en 1-extraer_texto_a mongodb_con_gui.py): <code>pip install PyPDF2</code></li>
         <li>Nota: En caso de problemas con PySide6/PyQt6, se puede usar <strong>PyQt5</strong>: <code>pip install PyQt5</code>, pero se requiere ajustar el código importando <code>PyQt5.QtWidgets</code> en lugar de <code>PySide6.QtWidgets</code>.</li>
     </ul>
 
@@ -160,11 +163,15 @@
         <li>Clic en "Iniciar Traducción" y observa el registro de actividad y progreso.</li>
         <li>La interfaz GUI permite cancelar operaciones en cualquier momento.</li>
         <li>Ejecuta la aplicación de composición GUI:</li>
-        <pre><code>python 3-componer.py</code></pre>
+        <pre><code>python 3-componer.py
+
+# Para modo de diagnóstico/prueba (consola):
+python 3-componer.py --test</code></pre>
         <li>Clic en "Actualizar Lista" para obtener las colecciones traducidas.</li>
         <li>Selecciona las colecciones a procesar usando checkboxes.</li>
         <li>Opcionalmente, marca "Exportar también a PDF" para generar PDF además de texto.</li>
         <li>Clic en "Procesar Seleccionadas" y observa el progreso y registro.</li>
+        <li>El modo --test permite verificar conexiones y contenido sin interfaz gráfica.</li>
     </ol>
 
     <p class="highlight">Nota importante: El orden de ejecución es crítico. Siempre ejecuta primero la extracción antes de la traducción, ya sea en versión CLI o GUI. Los scripts segmentan el texto conservando saltos de línea y puntos, mientras que los scripts de traducción procesan líneas vacías eficientemente.</p>
@@ -205,29 +212,12 @@ import os
 
 def segmentar_frases(ruta_archivo: str):
     """
-    Lee un archivo de texto y lo segmenta en frases por '.'.
-    Respeta los saltos de línea (\n) como segmentos aparte.
+    Lee un archivo de texto y lo segmenta en frases por saltos de línea.
     """
-    frases = []
-
     with open(ruta_archivo, "r", encoding="utf-8") as f:
         contenido = f.read()
 
-    frase_actual = ""
-    for caracter in contenido:
-        frase_actual += caracter
-        if caracter == ".":  # fin de frase
-            frases.append(frase_actual.strip("\n"))
-            frase_actual = ""
-        elif caracter == "\n":  # salto de línea
-            if frase_actual.strip("\n"):
-                frases.append(frase_actual.strip("\n"))
-            frases.append("\n")  # se guarda salto explícitamente
-            frase_actual = ""
-
-    # Si queda texto sin punto al final
-    if frase_actual.strip():
-        frases.append(frase_actual)
+    frases = contenido.split('\n')
 
     return frases
 
@@ -368,16 +358,14 @@ if __name__ == "__main__":
 
     <h2>Código de la Versión GUI de Extracción (1-extraer_texto_a mongodb_con_gui.py)</h2>
     <pre><code class="language-python">"""
-Aplicación GUI para extraer texto de archivos y almacenarlo en MongoDB.
-Interfaz gráfica construida con PySide6.
+Este script extrae texto de un archivo de texto o PDF, lo segmenta en líneas separadas por saltos de línea,
+y almacena cada línea en una colección de MongoDB.
+Interfaz GUI con PySide6.
 
-Características principales:
-- Selección de archivos mediante diálogo nativo del sistema
-- Procesamiento en segundo plano con hilos para evitar bloqueo de UI
-- Barra de progreso visual del procesamiento
-- Manejo robusto de errores con mensajes informativos
-- Tema oscuro profesional
-- Botón de cancelación para interrumpir operaciones
+El script lee un archivo de texto o PDF seleccionado por el usuario,
+segmenta el contenido en líneas separadas por saltos de línea,
+y luego conecta a una base de datos MongoDB local para almacenar cada segmento
+como un documento separado en una colección nombrada según el archivo.
 
 Uso:
     python 1-extraer_texto_a mongodb_con_gui.py
@@ -385,105 +373,95 @@ Uso:
 Dependencias:
     - pymongo: Para la conexión y operaciones con MongoDB
     - PySide6: Para la interfaz gráfica
+    - PyPDF2: Para extraer texto de archivos PDF
+    - El archivo especificado debe existir
+
+Colección MongoDB:
+    - Base de datos: traducciones
+    - Colección: [nombre_del_archivo_sin_extensión]
+    - Documentos: {"_id": int, "linea": str}
 """
 
 import sys
 import os
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QTextEdit
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QMessageBox
 from PySide6.QtGui import QPalette, QColor
 from PySide6.QtCore import QThread, Signal
+import pymongo
+import PyPDF2
 
 
 class WorkerThread(QThread):
     """
-    Hilo de trabajo para procesar archivos sin bloquear la GUI.
+    Hilo de trabajo para procesar el archivo sin bloquear la GUI.
     """
     progress = Signal(int)
-    message = Signal(str)
-    finished = Signal(bool, str)
+    finished_signal = Signal(bool, str)
 
-    def __init__(self, file_path, db_name='traducciones'):
+    def __init__(self, ruta_archivo):
         super().__init__()
-        self.file_path = file_path
-        self.db_name = db_name
+        self.ruta_archivo = ruta_archivo
         self.is_cancelled = False
+
+    def run(self):
+        try:
+            resultado = self.segmentar_frases(self.ruta_archivo)
+
+            # Conectar a MongoDB
+            client = pymongo.MongoClient()
+            db = client.traducciones
+            base = os.path.basename(self.ruta_archivo)
+            coleccion_nombre = os.path.splitext(base)[0]
+            coleccion = db[coleccion_nombre]
+
+            # Limpiar la colección antes de insertar
+            coleccion.delete_many({})
+
+            total = len(resultado)
+            for i, frase in enumerate(resultado, 1):
+                if self.is_cancelled:
+                    self.finished_signal.emit(False, "Operación cancelada por el usuario.")
+                    return
+
+                coleccion.insert_one({"_id": i, "linea": frase})
+                self.progress.emit(int((i / total) * 100))
+
+            self.finished_signal.emit(True, f"Proceso completado. {total} líneas insertadas en '{coleccion_nombre}'.")
+        except Exception as e:
+            self.finished_signal.emit(False, f"Error: {str(e)}")
 
     def cancel(self):
         self.is_cancelled = True
 
-    def run(self):
-        try:
-            if not os.path.exists(self.file_path):
-                raise FileNotFoundError(f"Archivo no encontrado: {self.file_path}")
+    def segmentar_frases(self, ruta_archivo: str):
+        """
+        Lee un archivo de texto o PDF y lo segmenta en líneas por saltos de línea.
+        """
+        frases = []
+        contenido = ""
 
-            # Conectar a MongoDB
-            from pymongo import MongoClient
-            client = MongoClient('mongodb://localhost:27017/')
-            db = client[self.db_name]
-            base = os.path.basename(self.file_path)
-            collection_name = os.path.splitext(base)[0]
-            collection = db[collection_name]
+        ext = os.path.splitext(ruta_archivo)[1].lower()
+        if ext == ".txt":
+            with open(ruta_archivo, "r", encoding="utf-8") as f:
+                contenido = f.read()
+        elif ext == ".pdf":
+            with open(ruta_archivo, "rb") as f:
+                pdf_reader = PyPDF2.PdfReader(f)
+                for page in pdf_reader.pages:
+                    contenido += page.extract_text() + "\n"
+        else:
+            raise ValueError("Formato de archivo no soportado. Solo .txt y .pdf.")
 
-            # Limpiar colección anterior
-            collection.delete_many({})
+        frases = contenido.split('\n')
 
-            # Leer y segmentar archivo
-            with open(self.file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-
-            lines = content.split('\n')
-            total_lines = len(lines)
-
-            for i, line in enumerate(lines, 1):
-                if self.is_cancelled:
-                    self.message.emit("Operación cancelada por el usuario.")
-                    self.finished.emit(False, "Cancelado")
-                    return
-
-                # Segmentar por puntos
-                sentences = []
-                current = ""
-                for char in line:
-                    current += char
-                    if char == '.':
-                        sentences.append(current.strip())
-                        current = ""
-
-                if current.strip():
-                    sentences.append(current.strip())
-
-                # Agregar línea completa si no hay puntos
-                if not sentences:
-                    sentences.append(line.strip())
-
-                # Insertar en MongoDB
-                for sentence in sentences:
-                    if sentence:  # Solo frases no vacías
-                        collection.insert_one({"_id": self.get_next_id(collection), "linea": sentence})
-
-                progress = int((i / total_lines) * 100)
-                self.progress.emit(progress)
-                self.message.emit(f"Procesando línea {i}/{total_lines}")
-
-            client.close()
-            self.message.emit(f"Procesamiento completado. Archivo: {collection_name}")
-            self.finished.emit(True, f"Archivo procesado exitosamente en colección '{collection_name}'")
-
-        except Exception as e:
-            self.finished.emit(False, f"Error: {str(e)}")
-
-    @staticmethod
-    def get_next_id(collection):
-        """Obtiene el siguiente ID disponible"""
-        last_doc = collection.find().sort('_id', -1).limit(1)
-        return last_doc[0]['_id'] + 1 if last_doc.count() > 0 else 1
+        return frases
 
 
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Extracción de Texto a MongoDB")
-        self.setGeometry(300, 300, 500, 300)
+        self.setWindowTitle("Extractor de Texto a MongoDB")
+        self.setGeometry(300, 300, 500, 250)
         self.setStyleSheet("""
             QWidget {
                 background-color: #2b2b2b;
@@ -497,10 +475,15 @@ class MainWindow(QWidget):
                 padding: 8px;
                 border-radius: 4px;
             }
-            QPushButton:hover { background-color: #505050; }
-            QPushButton:disabled { background-color: #303030; color: #666; }
-            QLabel, QTextEdit {
+            QPushButton:hover {
+                background-color: #505050;
+            }
+            QPushButton:pressed {
+                background-color: #303030;
+            }
+            QLabel {
                 color: #ffffff;
+                font-size: 12px;
             }
             QProgressBar {
                 background-color: #404040;
@@ -508,81 +491,90 @@ class MainWindow(QWidget):
                 border-radius: 4px;
                 text-align: center;
             }
-            QProgressBar::chunk { background-color: #4CAF50; }
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+            }
         """)
 
-        # Layout y widgets
-        layout = QVBoxLayout()
+        # Widgets
+        self.label_archivo = QLabel("Seleccionar archivo de texto o PDF:")
+        self.btn_seleccionar = QPushButton("Seleccionar archivo")
+        self.btn_seleccionar.clicked.connect(self.seleccionar_archivo)
 
-        self.btn_select_file = QPushButton("Seleccionar Archivo")
-        self.btn_select_file.clicked.connect(self.select_file)
-        layout.addWidget(self.btn_select_file)
-
-        self.lbl_file = QLabel("Ningún archivo seleccionado")
-        layout.addWidget(self.lbl_file)
-
-        self.btn_process = QPushButton("Procesar")
-        self.btn_process.clicked.connect(self.process_file)
-        self.btn_process.setEnabled(False)
-        layout.addWidget(self.btn_process)
-
-        self.btn_cancel = QPushButton("Cancelar")
-        self.btn_cancel.clicked.connect(self.cancel_process)
-        self.btn_cancel.setEnabled(False)
-        layout.addWidget(self.btn_cancel)
-
+        self.label_progreso = QLabel("Progreso:")
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
-        layout.addWidget(self.progress_bar)
 
-        self.text_log = QTextEdit()
-        self.text_log.setReadOnly(True)
-        self.text_log.setMaximumHeight(150)
-        layout.addWidget(self.text_log)
+        self.btn_procesar = QPushButton("Procesar")
+        self.btn_procesar.clicked.connect(self.procesar_archivo)
+        self.btn_procesar.setEnabled(False)
+
+        self.btn_cancelar = QPushButton("Cancelar")
+        self.btn_cancelar.clicked.connect(self.cancelar_proceso)
+        self.btn_cancelar.setEnabled(False)
+
+        self.status_label = QLabel("Seleccione un archivo y presione 'Procesar' para iniciar.")
+
+        # Layout
+        layout = QVBoxLayout()
+        layout.addWidget(self.label_archivo)
+        layout.addWidget(self.btn_seleccionar)
+
+        layout_h = QHBoxLayout()
+        layout_h.addWidget(self.btn_procesar)
+        layout_h.addWidget(self.btn_cancelar)
+        layout.addLayout(layout_h)
+
+        layout.addWidget(self.label_progreso)
+        layout.addWidget(self.progress_bar)
+        layout.addWidget(self.status_label)
 
         self.setLayout(layout)
+
+        self.ruta_archivo = None
         self.worker = None
-        self.selected_file = None
 
-    def select_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Seleccionar Archivo de Texto", "", "Archivos de Texto (*.txt)")
-        if file_path:
-            self.selected_file = file_path
-            self.lbl_file.setText(f"Archivo: {os.path.basename(file_path)}")
-            self.btn_process.setEnabled(True)
-            self.text_log.append(f"Archivo seleccionado: {os.path.basename(file_path)}")
+    def seleccionar_archivo(self):
+        self.ruta_archivo, _ = QFileDialog.getOpenFileName(self, "Seleccionar archivo", "", "Archivos de texto y PDF (*.txt *.pdf)")
+        if self.ruta_archivo:
+            self.btn_procesar.setEnabled(True)
+            self.status_label.setText(f"Archivo seleccionado: {os.path.basename(self.ruta_archivo)}")
+        else:
+            self.btn_procesar.setEnabled(False)
+            self.status_label.setText("Ningún archivo seleccionado.")
 
-    def process_file(self):
-        if not self.selected_file:
+    def procesar_archivo(self):
+        if not self.ruta_archivo:
+            QMessageBox.warning(self, "Advertencia", "Por favor, seleccione un archivo primero.")
             return
 
-        self.btn_process.setEnabled(False)
-        self.btn_cancel.setEnabled(True)
-        self.btn_select_file.setEnabled(False)
+        self.btn_procesar.setEnabled(False)
+        self.btn_cancelar.setEnabled(True)
         self.progress_bar.setValue(0)
-        self.text_log.clear()
-        self.text_log.append("Iniciando procesamiento...")
+        self.status_label.setText("Procesando...")
 
-        self.worker = WorkerThread(self.selected_file)
+        self.worker = WorkerThread(self.ruta_archivo)
         self.worker.progress.connect(self.progress_bar.setValue)
-        self.worker.message.connect(self.text_log.append)
-        self.worker.finished.connect(self.process_finished)
+        self.worker.finished_signal.connect(self.proceso_finalizado)
         self.worker.start()
 
-    def cancel_process(self):
+    def cancelar_proceso(self):
         if self.worker and self.worker.isRunning():
             self.worker.cancel()
-            self.btn_cancel.setText("Cancelando...")
-            self.btn_cancel.setEnabled(False)
+            self.btn_cancelar.setText("Cancelando...")
+            self.btn_cancelar.setEnabled(False)
 
-    def process_finished(self, success, message):
-        self.btn_process.setEnabled(True)
-        self.btn_cancel.setEnabled(False)
-        self.btn_cancel.setText("Cancelar")
-        self.btn_select_file.setEnabled(True)
-        self.text_log.append(message)
+    def proceso_finalizado(self, success, message):
+        self.btn_procesar.setEnabled(True)
+        self.btn_cancelar.setEnabled(False)
+        self.btn_cancelar.setText("Cancelar")
+        self.status_label.setText(message)
+        if success:
+            QMessageBox.information(self, "Éxito", message)
+            self.progress_bar.setValue(100)
+        else:
+            QMessageBox.warning(self, "Error", message)
 
 
 if __name__ == "__main__":

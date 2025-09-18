@@ -1,9 +1,9 @@
 """
-Este script extrae texto de un archivo, lo segmenta en frases separadas por puntos,
-y almacena cada frase en una colección de MongoDB.
+Este script extrae texto de un archivo, lo segmenta en líneas separadas por saltos de línea,
+y almacena cada línea en una colección de MongoDB.
 
 El script lee un archivo de texto (por defecto 'el_quijote.txt'),
-segmenta el contenido respetando los saltos de línea y los puntos finales,
+segmenta el contenido en líneas separadas por saltos de línea,
 y luego conecta a una base de datos MongoDB local para almacenar cada segmento
 como un documento separado en una colección nombrada según el archivo.
 
@@ -25,29 +25,12 @@ import os
 
 def segmentar_frases(ruta_archivo: str):
     """
-    Lee un archivo de texto y lo segmenta en frases por '.'.
-    Respeta los saltos de línea (\n) como segmentos aparte.
+    Lee un archivo de texto y lo segmenta en líneas por saltos de línea.
     """
-    frases = []
-
     with open(ruta_archivo, "r", encoding="utf-8") as f:
         contenido = f.read()
 
-    frase_actual = ""
-    for caracter in contenido:
-        frase_actual += caracter
-        if caracter == ".":  # fin de frase
-            frases.append(frase_actual.strip("\n"))
-            frase_actual = ""
-        elif caracter == "\n":  # salto de línea
-            if frase_actual.strip("\n"):
-                frases.append(frase_actual.strip("\n"))
-            frases.append("\n")  # se guarda salto explícitamente
-            frase_actual = ""
-
-    # Si queda texto sin punto al final
-    if frase_actual.strip():
-        frases.append(frase_actual)
+    frases = contenido.split('\n')
 
     return frases
 

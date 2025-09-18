@@ -46,20 +46,38 @@ requests>=2.25
 ```
 
 ### Dependencias Python (GUI)
+```bash
+# Para versiones GUI con interfaz gráfica
+pip install pymongo requests PySide6 PyPDF2 reportlab
 ```
-pymongo>=4.0
-requests>=2.25
-PySide6>=6.0
-reportlab>=4.0
-```
+
+### Dependencias específicas:
+- **General GUI**: pymongo, requests, PySide6
+- **Extracción GUI**: PyPDF2 (soporte para archivos .txt y .pdf)
+- **Composición GUI**: reportlab (generación de archivos .pdf)
 
 ### Instalación de Dependencias
 ```bash
 # Instalar dependencias para versión CLI
 pip install pymongo requests
 
-# Instalar dependencias para versión GUI
-pip install pymongo requests PySide6 reportlab
+# Instalar dependencias para versión GUI completa
+pip install pymongo requests PySide6 PyPDF2 reportlab
+```
+
+### Instalación Detallada por Componente
+```bash
+# Base para todas las operaciones
+pip install pymongo requests
+
+# Para interfaces gráficas (todos los scripts *con_gui.py)
+pip install PySide6
+
+# Para soporte de PDF en extracción (1-extraer_texto_a mongodb_con_gui.py)
+pip install PyPDF2
+
+# Para generación de PDF en composición (3-componer.py)
+pip install reportlab
 ```
 
 ## 📋 Configuración Inicial
@@ -123,10 +141,12 @@ python 1-extraer_texto_a mongodb_con_gui.py
 ```
 
 Características:
-- **Selección de archivos**: Diálogo nativo del sistema operativo
+- **Selección de archivos**: Diálogo nativo del sistema operativo para .txt y .pdf
+- **Soporte múltiple**: Extrae texto de archivos de texto (.txt) y PDF (.pdf)
 - **Barra de progreso**: Visualización del procesamiento en tiempo real
 - **Cancelación**: Botón para detener el proceso
 - **Tema oscuro**: Interfaz profesional y moderna
+- **Validación**: Verificación de archivos compatibles antes del procesamiento
 
 #### Traducción Masiva con GUI
 ```bash
@@ -143,7 +163,11 @@ Características avanzadas:
 
 #### Composición de Texto Traducido
 ```bash
+# Interfaz gráfica
 python 3-componer.py
+
+# Modo de prueba/consola (para depuración)
+python 3-componer.py --test
 ```
 
 Características avanzadas:
@@ -153,6 +177,7 @@ Características avanzadas:
 - **Progreso visual**: Barra de progreso por colección procesada
 - **Log detallado**: Registro de actividad y confirmación de archivos creados
 - **Tema oscuro**: Interfaz profesional y moderna
+- **Modo de prueba**: Verificación de conexiones y diagnóstico vía consola
 
 ## 🗂️ Estructuras de Datos
 
@@ -248,7 +273,7 @@ ollama serve
 
 #### Dependencias faltantes
 ```bash
-pip install --upgrade pymongo requests PySide6 reportlab
+pip install --upgrade pymongo requests PySide6 PyPDF2 reportlab
 ```
 
 #### Errores de codificación
