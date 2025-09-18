@@ -1,6 +1,6 @@
 # TRADUCTOR ARCHIVOS
 
-Una aplicación completa para extraer, procesar y traducir texto de archivos utilizando MongoDB y IA local con Ollama. El proyecto permite segmentar textos en frases, almacenarlos en bases de datos, y traducir contenidos del español al inglés de manera eficiente.
+Una aplicación completa para extraer, procesar, traducir texto de archivos y reconstruir los contenidos traducidos. Utiliza MongoDB para almacenamiento persistente y IA local con Ollama para traducciones eficientes. Ideal para traducción masiva de textos literarios del español al inglés, manteniendo la estructura original del contenido.
 
 ## 🚀 Características Principales
 
@@ -8,6 +8,8 @@ Una aplicación completa para extraer, procesar y traducir texto de archivos uti
 - **Almacenamiento en MongoDB**: Persistencia de datos segmentados en colecciones de MongoDB
 - **Traducción con IA**: Traducción automática español-inglés usando modelos Ollama locales
 - **Dos Interfaces**: Versiones CLI (línea de comandos) y GUI (interfaz gráfica)
+- **Reconstrucción de Texto**: Composición automática de archivos traducidos desde MongoDB
+- **Exportación Múltiple**: Soporte para archivos de texto (.txt) y PDF
 - **Procesamiento Masivo**: Soporte para múltiples archivos y colecciones
 - **Progreso Visual**: Barras de progreso y registro de actividad detallado
 - **Manejo de Errores Robusto**: Continúa procesamiento ante fallos individuales
@@ -21,7 +23,10 @@ TRADUCTOR_ARCHIVOS/
 ├── 1-extraer_texto_a mongodb_con_gui.py      # GUI: Extracción con interfaz gráfica
 ├── 2-traducir_desde_mongodb.py               # CLI: Traducción automática
 ├── 2-traducir_desde_mongodb_con_gui.py       # GUI: Traducción masiva con GUI
+├── 3-componer.py                            # GUI: Composición de texto traducido
 ├── el_quijote.txt                           # Archivo de ejemplo (Don Quijote)
+├── el_quijote_traducido_al_ingles.txt        # Archivo generado (Don Quijote traducido)
+├── el_quijote_traducido_al_ingles.pdf        # Archivo generado (Don Quijote traducido en PDF)
 ├── manual_traductor_texto.html              # Manual detallado en HTML
 ├── .gitignore                              # Archivos ignorados por Git
 └── README.md                               # Este archivo
@@ -45,6 +50,7 @@ requests>=2.25
 pymongo>=4.0
 requests>=2.25
 PySide6>=6.0
+reportlab>=4.0
 ```
 
 ### Instalación de Dependencias
@@ -53,7 +59,7 @@ PySide6>=6.0
 pip install pymongo requests
 
 # Instalar dependencias para versión GUI
-pip install pymongo requests PySide6
+pip install pymongo requests PySide6 reportlab
 ```
 
 ## 📋 Configuración Inicial
@@ -90,6 +96,7 @@ curl http://localhost:11434/api/tags
 ### Orden de Ejecución Recomendado
 1. **Primero**: Ejecutar script de extracción para procesar archivos
 2. **Segundo**: Ejecutar script de traducción para traducir el contenido
+3. **Tercero**: Ejecutar script de composición para reconstruir archivos traducidos
 
 ### Versión CLI
 
@@ -133,6 +140,19 @@ Características avanzadas:
 - **Log coloreado**: Registro de actividad con colores diferenciados
 - **Procesamiento en paralelo**: Mantenimiento de interfaz responsiva
 - **Selección rápida**: Botones "Seleccionar Todo" y "Limpiar Selección"
+
+#### Composición de Texto Traducido
+```bash
+python 3-componer.py
+```
+
+Características avanzadas:
+- **Detección automática**: Lista colecciones con '_traducido_' en MongoDB
+- **Selección múltiple**: Checkbox para elegir qué colecciones procesar
+- **Generación de archivos**: Crea automáticamente archivos .txt y opcionalmente .pdf
+- **Progreso visual**: Barra de progreso por colección procesada
+- **Log detallado**: Registro de actividad y confirmación de archivos creados
+- **Tema oscuro**: Interfaz profesional y moderna
 
 ## 🗂️ Estructuras de Datos
 
@@ -228,7 +248,7 @@ ollama serve
 
 #### Dependencias faltantes
 ```bash
-pip install --upgrade pymongo requests PySide6
+pip install --upgrade pymongo requests PySide6 reportlab
 ```
 
 #### Errores de codificación

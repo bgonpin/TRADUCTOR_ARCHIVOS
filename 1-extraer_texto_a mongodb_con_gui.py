@@ -1,9 +1,9 @@
 """
-Este script extrae texto de un archivo, lo segmenta en frases separadas por puntos,
+Este script extrae texto de un archivo de texto o PDF, lo segmenta en frases separadas por puntos,
 y almacena cada frase en una colección de MongoDB.
 Interfaz GUI con PySide6.
 
-El script lee un archivo de texto seleccionado por el usuario,
+El script lee un archivo de texto o PDF seleccionado por el usuario,
 segmenta el contenido respetando los saltos de línea y los puntos finales,
 y luego conecta a una base de datos MongoDB local para almacenar cada segmento
 como un documento separado en una colección nombrada según el archivo.
@@ -14,7 +14,8 @@ Uso:
 Dependencias:
     - pymongo: Para la conexión y operaciones con MongoDB
     - PySide6: Para la interfaz gráfica
-    - El archivo de texto especificado debe existir
+    - PyPDF2: Para extraer texto de archivos PDF
+    - El archivo especificado debe existir
 
 Colección MongoDB:
     - Base de datos: traducciones
@@ -28,6 +29,7 @@ from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, Q
 from PySide6.QtGui import QPalette, QColor
 from PySide6.QtCore import QThread, Signal
 import pymongo
+import PyPDF2
 
 
 class WorkerThread(QThread):
@@ -74,13 +76,23 @@ class WorkerThread(QThread):
 
     def segmentar_frases(self, ruta_archivo: str):
         """
-        Lee un archivo de texto y lo segmenta en frases por '.'.
+        Lee un archivo de texto o PDF y lo segmenta en frases por '.'.
         Respeta los saltos de línea (\n) como segmentos aparte.
         """
         frases = []
+        contenido = ""
 
-        with open(ruta_archivo, "r", encoding="utf-8") as f:
-            contenido = f.read()
+        ext = os.path.splitext(ruta_archivo)[1].lower()
+        if ext == ".txt":
+            with open(ruta_archivo, "r", encoding="utf-8") as f:
+                contenido = f.read()
+        elif ext == ".pdf":
+            with open(ruta_archivo, "rb") as f:
+                pdf_reader = PyPDF2.PdfReader(f)
+                for page in pdf_reader.pages:
+                    contenido += page.extract_text() + "\n"
+        else:
+            raise ValueError("Formato de archivo no soportado. Solo .txt y .pdf.")
 
         frase_actual = ""
         for caracter in contenido:
@@ -91,7 +103,7 @@ class WorkerThread(QThread):
             elif caracter == "\n":  # salto de línea
                 if frase_actual.strip("\n"):
                     frases.append(frase_actual.strip("\n"))
-                frases.append("\n")  # se guarda salto explícitamente
+                frases.append("\n")  # se guarda salto explítamente
                 frase_actual = ""
 
         # Si queda texto sin punto al final
@@ -141,7 +153,7 @@ class MainWindow(QWidget):
         """)
 
         # Widgets
-        self.label_archivo = QLabel("Seleccionar archivo de texto:")
+        self.label_archivo = QLabel("Seleccionar archivo de texto o PDF:")
         self.btn_seleccionar = QPushButton("Seleccionar archivo")
         self.btn_seleccionar.clicked.connect(self.seleccionar_archivo)
 
@@ -180,7 +192,7 @@ class MainWindow(QWidget):
         self.worker = None
 
     def seleccionar_archivo(self):
-        self.ruta_archivo, _ = QFileDialog.getOpenFileName(self, "Seleccionar archivo de texto", "", "Archivos de texto (*.txt)")
+        self.ruta_archivo, _ = QFileDialog.getOpenFileName(self, "Seleccionar archivo", "", "Archivos de texto y PDF (*.txt *.pdf)")
         if self.ruta_archivo:
             self.btn_procesar.setEnabled(True)
             self.status_label.setText(f"Archivo seleccionado: {os.path.basename(self.ruta_archivo)}")
