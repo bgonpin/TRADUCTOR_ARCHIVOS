@@ -69,13 +69,13 @@ class WorkerThread(QThread):
                 collection = db[coll_name]
 
                 # Obtener todos los documentos
-                documents = collection.find()
+                all_docs = list(collection.find())
 
                 # Crear un archivo de texto con el nombre de la colección
                 output_file = f"{coll_name}.txt"
                 line_count = 0
                 with open(output_file, 'w', encoding='utf-8') as f:
-                    for doc in documents:
+                    for doc in all_docs:
                         if self.is_cancelled:
                             self.log.emit("Operación cancelada por el usuario.")
                             self.finished_signal.emit(False, "Operación cancelada por el usuario.")
@@ -95,20 +95,66 @@ class WorkerThread(QThread):
                     self.log.emit(f"Generando PDF para {coll_name}...")
                     try:
                         pdf_file = f"{coll_name}.pdf"
-                        doc = SimpleDocTemplate(pdf_file, pagesize=letter)
+                        from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
+                        from reportlab.platypus import PageBreak, Spacer, Frame
+                        from reportlab.lib.styles import ParagraphStyle
+                        from reportlab.platypus.doctemplate import PageTemplate, BaseDocTemplate
+                        from reportlab.lib.pagesizes import letter
+                        from reportlab.lib.units import inch
+
+                        # Crear estilo personalizado con justificación
                         styles = getSampleStyleSheet()
+                        styles["Normal"].alignment = TA_JUSTIFY
+
+                        # Función para dibujar el número de página en el footer
+                        def draw_page_number(canvas, doc):
+                            canvas.saveState()
+                            canvas.setFont('Helvetica', 9)
+                            page_num = canvas.getPageNumber()
+                            text = f"Página {page_num}"
+                            canvas.drawCentredString(letter[0] / 2, 0.5 * inch, text)
+                            canvas.restoreState()
+
+                        # Crear un PageTemplate personalizado
+                        page_template = PageTemplate(
+                            id='custom_page',
+                            frames=[
+                                Frame(
+                                    x1=0.5*inch, y1=0.75*inch,
+                                    width=letter[0]-inch, height=letter[1]-1.25*inch,
+                                    leftPadding=0, bottomPadding=0, rightPadding=0, topPadding=0,
+                                    id='main_frame'
+                                )
+                            ],
+                            onPage=draw_page_number
+                        )
+
+                        # Crear el documento con el template personalizado
+                        pdf_template = BaseDocTemplate(pdf_file, pagesize=letter)
+                        pdf_template.addPageTemplates([page_template])
+
                         story = []
-                        lines = []  # Assuming content is saved, but since not, we need to read
-                        with open(output_file, 'r', encoding='utf-8') as f:
-                            content = f.read()
-                        lines = content.split('\n')
-                        for line in lines:
-                            if line.strip():
-                                p = Paragraph(line, styles["Normal"])
-                                story.append(p)
+
+                        # Add some space at the top
+                        story.append(Spacer(1, 0.25*inch))
+
+                        # Process documents for PDF
+                        for doc in all_docs:
+                            if 'linea' in doc:
+                                linea_content = str(doc['linea']).strip()
+                                if linea_content:
+                                    p = Paragraph(linea_content, styles["Normal"])
+                                    story.append(p)
+                                    # Add small space between paragraphs
+                                    story.append(Spacer(1, 0.1*inch))
+                                else:
+                                    # Empty document: page break
+                                    story.append(PageBreak())
+                                    story.append(Spacer(1, 0.25*inch))
+
                         if story:
-                            doc.build(story)
-                            self.log.emit(f"Archivo PDF {pdf_file} creado.")
+                            pdf_template.build(story)
+                            self.log.emit(f"Archivo PDF {pdf_file} creado con números de página.")
                         else:
                             self.log.emit("No hay contenido para el PDF.")
                     except Exception as e:
@@ -216,8 +262,8 @@ class MainWindow(QWidget):
         self.btn_cancelar.clicked.connect(self.cancelar_proceso)
         self.btn_cancelar.setEnabled(False)
 
-        self.checkbox_pdf = QCheckBox("Exportar también a PDF")
-        self.checkbox_pdf.setChecked(False)
+        self.checkbox_pdf = QCheckBox("Generar también archivo PDF (recomendado)")
+        self.checkbox_pdf.setChecked(True)
 
         self.label_log = QLabel("Registro de procesamiento:")
         self.text_log = QTextEdit()
