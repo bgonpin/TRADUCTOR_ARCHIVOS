@@ -1,4 +1,4 @@
-# TRADUCTOR_ARCHIVOS
+# TRADUCTOR ARCHIVOS
 
 Una aplicación completa para extraer, procesar y traducir texto de archivos utilizando MongoDB y IA local con Ollama. El proyecto permite segmentar textos en frases, almacenarlos en bases de datos, y traducir contenidos del español al inglés de manera eficiente.
 
