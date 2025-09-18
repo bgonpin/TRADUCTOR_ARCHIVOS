@@ -30,7 +30,7 @@
 
     <h3>Versiones CLI (Línea de Comandos)</h3>
     <ul>
-        <li><strong>1-extraer_texto_a mongodb.py</strong>: Extrae y segmenta texto de un archivo (por defecto 'el_quijote.txt'), y lo almacena en MongoDB.</li>
+        <li><strong>1-extraer_texto_a mongodb.py</strong>: Extrae y segmenta texto del archivo 'el_quijote.txt' (hardcoded), y lo almacena en MongoDB.</li>
         <li><strong>2-traducir_desde_mongodb.py</strong>: Lee el texto almacenado en MongoDB, lo traduce del español al inglés usando Ollama, y guarda las traducciones en una nueva colección.</li>
     </ul>
 
@@ -178,11 +178,15 @@ python 3-componer.py --test</code></pre>
 
     <h2>Configuración de MongoDB</h2>
     <ul>
-        <li><strong>Base de datos</strong>: traducciones</li>
-        <li><strong>Colección origen</strong>: el_quijote (ajustable en COLECCION_NAME)</li>
-        <li><strong>Colección destino</strong>: el_quijote_traducido_al_ingles</li>
+        <li><strong>Base de datos</strong>: traducciones (con variaciones: 'traducciones', 'traducir', 'translations')</li>
+        <li><strong>Colección origen</strong>: el_quijote (ajustable en COLECCION_NAME para CLI) / dinámica para GUI</li>
+        <li><strong>Colección destino</strong>: [colección_original]_traducido_al_ingles</li>
         <li><strong>Estructura de documentos</strong>: {"_id": int, "linea": str}</li>
     </ul>
+
+    <div class="highlight">
+    <strong>Nota sobre bases de datos:</strong> Los scripts detectan automáticamente varias variaciones del nombre de base de datos ('traducciones', 'traducir', 'translations') para mayor compatibilidad.
+    </div>
 
     <h2>Código del Script de Extracción</h2>
     <pre><code class="language-python">"""
