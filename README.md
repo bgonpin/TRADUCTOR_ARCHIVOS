@@ -156,8 +156,16 @@ python traductor_documentos.py
 
 **Flujo de uso típico:**
 1. **Pestaña 1 - Extraer**: Seleccionar archivo .txt o .pdf para procesar
+
+   ![Extraer Texto](imagenes/1-Extraer%20Texto.png)
+
 2. **Pestaña 2 - Traducir**: Elegir idiomas y colecciones a traducir
+
+   ![Traducir](imagenes/2-Traducir.png)
+
 3. **Pestaña 3 - Componer**: Generar archivos finales .txt y .pdf
+
+   ![Componer](imagenes/3-Componer.png)
 
 ### Orden de Ejecución Recomendado (Scripts Individuales)
 Para usuarios que prefieren scripts separados o necesitan personalización avanzada:
