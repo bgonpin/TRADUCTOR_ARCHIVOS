@@ -3,11 +3,12 @@
 Esta aplicación proporciona una interfaz gráfica para traducir colecciones de libros almacenados en MongoDB utilizando el servicio Ollama.
 
 Funcionalidades:
-- Lista las colecciones originales disponibles (sin "_traducido_al_ingles")
+- Lista las colecciones originales disponibles (sin sufijos de traducción)
 - Permite seleccionar múltiples colecciones para traducción
 - Muestra progreso del proceso
 - Permite cancelar el proceso en cualquier momento
 - Registra log de actividades
+- Soporte para tradución entre Español, Inglés y Francés
 
 Dependencias:
     - PySide6: Para la interfaz gráfica
@@ -26,17 +27,21 @@ import requests
 from pymongo import MongoClient
 from PySide6.QtWidgets import (QApplication, QMainWindow, QListWidget, QListWidgetItem,
                                QPushButton, QProgressBar, QTextEdit, QVBoxLayout, QHBoxLayout,
-                               QWidget, QSplitter, QMessageBox, QCheckBox, QLabel, QGroupBox)
+                               QWidget, QSplitter, QMessageBox, QCheckBox, QLabel, QGroupBox, QComboBox)
 from PySide6.QtCore import QThread, Signal, QObject, QTimer
 from PySide6.QtGui import QFont, QColor, QPalette
 
 # Constantes para idiomas
 IDIOMA_EN = "en"
 IDIOMA_ES = "es"
+IDIOMA_FR = "fr"
 
-# Direcciones de traducción
-DIRECCION_EN_ES = (IDIOMA_EN, IDIOMA_ES)
-DIRECCION_ES_EN = (IDIOMA_ES, IDIOMA_EN)
+# Nombres de idiomas para prompts
+IDIOMA_NAMES = {
+    IDIOMA_ES: "español",
+    IDIOMA_EN: "inglés",
+    IDIOMA_FR: "francés"
+}
 
 # Constantes para MongoDB
 DATABASE_NAME = "traducciones"
@@ -46,19 +51,25 @@ def traducir_con_ollama(texto: str, idioma_origen: str, idioma_destino: str) -> 
     """
     Traduce un texto usando Ollama.
     :param texto: Texto de entrada a traducir
-    :param idioma_origen: Idioma de origen (ej: 'en' para inglés, 'es' para español)
-    :param idioma_destino: Idioma de destino (ej: 'es' para español, 'en' para inglés)
+    :param idioma_origen: Idioma de origen (ej: 'en' para inglés, 'es' para español, 'fr' para francés)
+    :param idioma_destino: Idioma de destino (ej: 'es' para español, 'en' para inglés, 'fr' para francés)
     :return: Traducción como cadena
     """
     url = "http://localhost:11434/api/generate"
 
     # Crear prompt dinámico basado en los idiomas
-    if idioma_origen == IDIOMA_ES and idioma_destino == IDIOMA_EN:
-        prompt = f"Translate the following text from Spanish to English. Provide only the English translation, without explanations or additional modifications:\n\n{texto}"
-    elif idioma_origen == IDIOMA_EN and idioma_destino == IDIOMA_ES:
-        prompt = f"Traduce el siguiente texto del inglés al español. Proporciona únicamente la traducción al español, sin explicaciones ni modificaciones adicionales:\n\n{texto}"
+    nombre_origen = IDIOMA_NAMES[idioma_origen]
+    nombre_destino = IDIOMA_NAMES[idioma_destino]
+
+    # Prompts en inglés para el modelo, alternando según necesidad
+    if idioma_origen == IDIOMA_ES:
+        prompt = f"Translate the following text from Spanish to {nombre_destino}. Provide only the {nombre_destino} translation, without explanations or additional modifications:\n\n{texto}"
+    elif idioma_origen == IDIOMA_EN:
+        prompt = f"Translate the following text from English to {nombre_destino}. Provide only the {nombre_destino} translation, without explanations or additional modifications:\n\n{texto}"
+    elif idioma_origen == IDIOMA_FR:
+        prompt = f"Translate the following text from French to {nombre_destino}. Provide only the {nombre_destino} translation, without explanations or additional modifications:\n\n{texto}"
     else:
-        raise ValueError(f"Dirección de traducción no soportada: {idioma_origen} -> {idioma_destino}")
+        raise ValueError(f"Idioma de origen no soportado: {idioma_origen}")
 
     payload = {
         "model": "gemma3:4b",   # Cambia por el modelo que tengas disponible (ej: "mistral")
@@ -82,9 +93,11 @@ class TraductionWorker(QObject):
     finished = Signal()  # Finalización
     error = Signal(str)  # Errores
 
-    def __init__(self, collections_to_translate):
+    def __init__(self, collections_to_translate, source_lang, target_lang):
         super().__init__()
         self.collections_to_translate = collections_to_translate
+        self.source_lang = source_lang
+        self.target_lang = target_lang
         self.cancelled = False
         self.client = MongoClient("mongodb://localhost:27017/")
         self.db = self.client[DATABASE_NAME]
@@ -104,7 +117,7 @@ class TraductionWorker(QObject):
             self.log_message.emit(f"Procesando colección: {collection_name}")
 
             collection_origen = self.db[collection_name]
-            collection_traducida = self.db[f"{collection_name}_traducido_al_ingles"]
+            collection_traducida = self.db[f"{collection_name}_traducido_a_{self.target_lang}"]
 
             # Limpiar colección destino si existe
             collection_traducida.drop()
@@ -137,7 +150,7 @@ class TraductionWorker(QObject):
 
                 # Traducir la línea
                 try:
-                    traduccion = traducir_con_ollama(linea_texto, *DIRECCION_ES_EN)
+                    traduccion = traducir_con_ollama(linea_texto, self.source_lang, self.target_lang)
                     collection_traducida.insert_one({"_id": linea_numero, "linea": traduccion})
                     self.log_message.emit(f"Línea {linea_numero}: '{traduccion}'")
                     processed_docs += 1
@@ -167,6 +180,9 @@ class TradutorApp(QMainWindow):
         self.db = None
         self.worker = None
         self.thread = None
+        self.lang_codes = ['es', 'en', 'fr']
+        self.lang_labels = ['Español (es)', 'English (en)', 'Français (fr)']
+        self.known_suffixes = [f"_traducido_a_{lang}" for lang in self.lang_codes] + ["_traducido_al_ingles"]  # backward compatibility
         self.setup_ui()
         self.setup_database()
         self.load_collections()
@@ -208,6 +224,30 @@ class TradutorApp(QMainWindow):
         buttons_layout.addWidget(self.clear_selection_btn)
 
         left_layout.addLayout(buttons_layout)
+
+        # Options for translation
+        options_group = QGroupBox("Opciones de Traducción")
+        options_layout = QVBoxLayout(options_group)
+
+        # Source language
+        source_layout = QHBoxLayout()
+        source_layout.addWidget(QLabel("Idioma origen:"))
+        self.source_combo = QComboBox()
+        self.source_combo.addItems(self.lang_labels)
+        self.source_combo.setCurrentIndex(0)
+        source_layout.addWidget(self.source_combo)
+        options_layout.addLayout(source_layout)
+
+        # Target language
+        target_layout = QHBoxLayout()
+        target_layout.addWidget(QLabel("Idioma destino:"))
+        self.target_combo = QComboBox()
+        self.target_combo.addItems(self.lang_labels)
+        self.target_combo.setCurrentIndex(1)
+        target_layout.addWidget(self.target_combo)
+        options_layout.addLayout(target_layout)
+
+        left_layout.addWidget(options_group)
 
         # Panel derecho para controles y progreso
         right_panel = QWidget()
@@ -273,8 +313,8 @@ class TradutorApp(QMainWindow):
     def load_collections(self):
         try:
             collections = self.db.list_collection_names()
-            # Filtrar solo las originales (sin "_traducido_al_ingles")
-            original_collections = [coll for coll in collections if not coll.endswith("_traducido_al_ingles")]
+            # Filtrar solo las originales (sin sufijos de traducción)
+            original_collections = [coll for coll in collections if all(not coll.endswith(suf) for suf in self.known_suffixes)]
 
             self.collections_list.clear()
             for coll in sorted(original_collections):
@@ -303,9 +343,18 @@ class TradutorApp(QMainWindow):
 
         collections_to_translate = [item.text() for item in selected_items]
 
+        # Get language selections
+        source_idx = self.source_combo.currentIndex()
+        target_idx = self.target_combo.currentIndex()
+        source_lang = self.lang_codes[source_idx]
+        target_lang = self.lang_codes[target_idx]
+        if source_lang == target_lang:
+            QMessageBox.warning(self, "Advertencia", "Los idiomas de origen y destino deben ser diferentes")
+            return
+
         # Crear worker y hilo
         self.thread = QThread()
-        self.worker = TraductionWorker(collections_to_translate)
+        self.worker = TraductionWorker(collections_to_translate, source_lang, target_lang)
         self.worker.moveToThread(self.thread)
 
         # Conectar señales

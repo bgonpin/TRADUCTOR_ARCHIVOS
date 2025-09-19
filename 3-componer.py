@@ -15,7 +15,7 @@ Dependencias:
 
 import sys
 import os
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QListWidget, QTextEdit, QMessageBox, QCheckBox
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QListWidget, QTextEdit, QMessageBox, QCheckBox, QFileDialog
 from PySide6.QtGui import QPalette, QColor
 from PySide6.QtCore import QThread, Signal
 from pymongo import MongoClient
@@ -32,11 +32,12 @@ class WorkerThread(QThread):
     log = Signal(str)
     finished_signal = Signal(bool, str)
 
-    def __init__(self, collections, db_name='traducciones', export_pdf=False):
+    def __init__(self, collections, db_name='traducciones', export_pdf=False, save_dir='.'):
         super().__init__()
         self.collections = collections
         self.db_name = db_name
         self.export_pdf = export_pdf
+        self.save_dir = save_dir
         self.is_cancelled = False
 
     def run(self):
@@ -72,7 +73,7 @@ class WorkerThread(QThread):
                 all_docs = list(collection.find())
 
                 # Crear un archivo de texto con el nombre de la colección
-                output_file = f"{coll_name}.txt"
+                output_file = os.path.join(self.save_dir, f"{coll_name}.txt")
                 line_count = 0
                 with open(output_file, 'w', encoding='utf-8') as f:
                     for doc in all_docs:
@@ -94,7 +95,7 @@ class WorkerThread(QThread):
                 if self.export_pdf:
                     self.log.emit(f"Generando PDF para {coll_name}...")
                     try:
-                        pdf_file = f"{coll_name}.pdf"
+                        pdf_file = os.path.join(self.save_dir, f"{coll_name}.pdf")
                         from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
                         from reportlab.platypus import PageBreak, Spacer, Frame
                         from reportlab.lib.styles import ParagraphStyle
@@ -346,6 +347,15 @@ class MainWindow(QWidget):
 
         collections = [item.text() for item in selected_items]
 
+        selected_dir = QFileDialog.getExistingDirectory(self, "Seleccionar directorio para guardar archivos")
+        if not selected_dir:
+            QMessageBox.information(self, "Información", "No se seleccionó ningún directorio. Operación cancelada.")
+            self.btn_procesar.setEnabled(True)
+            self.btn_cancelar.setEnabled(False)
+            self.btn_actualizar.setEnabled(True)
+            self.checkbox_pdf.setEnabled(True)
+            return
+
         self.btn_procesar.setEnabled(False)
         self.btn_cancelar.setEnabled(True)
         self.btn_actualizar.setEnabled(False)
@@ -354,7 +364,7 @@ class MainWindow(QWidget):
         self.text_log.clear()
         self.text_log.append("Iniciando procesamiento...")
 
-        self.worker = WorkerThread(collections, export_pdf=self.checkbox_pdf.isChecked())
+        self.worker = WorkerThread(collections, save_dir=selected_dir, export_pdf=self.checkbox_pdf.isChecked())
         self.worker.progress.connect(self.progress_bar.setValue)
         self.worker.log.connect(self.text_log.append)
         self.worker.finished_signal.connect(self.proceso_finalizado)
