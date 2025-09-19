@@ -1,35 +1,61 @@
 # TRADUCTOR ARCHIVOS
 
-Una aplicación completa para extraer, procesar, traducir texto de archivos y reconstruir los contenidos traducidos. Utiliza MongoDB para almacenamiento persistente y IA local con Ollama para traducciones eficientes. Ideal para traducción masiva de textos literarios del español al inglés, manteniendo la estructura original del contenido.
+Una aplicación completa integrada para extraer, procesar, traducir texto de archivos y reconstruir los contenidos traducidos en una sola interfaz gráfica intuitiva. Utiliza MongoDB para almacenamiento persistente y IA local con Ollama para traducciones eficientes. Perfecta para traducción masiva de textos literarios entre múltiples idiomas, manteniendo la estructura original del contenido.
 
 ## 🚀 Características Principales
 
-- **Extracción Inteligente de Texto**: Segmenta archivos de texto en frases respetando puntos y saltos de línea
-- **Almacenamiento en MongoDB**: Persistencia de datos segmentados en colecciones de MongoDB
-- **Traducción con IA**: Traducción automática español-inglés usando modelos Ollama locales
-- **Dos Interfaces**: Versiones CLI (línea de comandos) y GUI (interfaz gráfica)
-- **Reconstrucción de Texto**: Composición automática de archivos traducidos desde MongoDB
-- **Exportación Múltiple**: Soporte para archivos de texto (.txt) y PDF
-- **Procesamiento Masivo**: Soporte para múltiples archivos y colecciones
-- **Progreso Visual**: Barras de progreso y registro de actividad detallado
-- **Manejo de Errores Robusto**: Continúa procesamiento ante fallos individuales
-- **Tema Oscuro**: Interfaz gráfica moderna y profesional
+### Aplicación Unificada - `traductor_documentos.py`
+- **Interfaz Completa (GUI Unificada)**: Una sola aplicación con tres pestañas para extracción, traducción y composición
+- **Extracción Inteligente de Texto**: Segmenta archivos de texto (.txt) y PDF en frases preservando la estructura original
+- **Almacenamiento en MongoDB**: Persistencia de datos segmentados en colecciones estructuradas de MongoDB
+- **Traducción con IA Avanzada**: Traducción automática entre español, inglés y francés usando modelos Ollama locales (gemma3:4b)
+- **Reconstrucción Profesionaassl**: Composición automática de archivos traducidos en formato .txt y PDF con formato tipográfico
+- **Procesamiento Masivo**: Soporte para múltiples archivos, colecciones y traducciones simultáneas
+- **Progreso Visual Completo**: Barras de progreso individuales por pestaña y registro de actividad global
+- **Procesamiento Asíncrono**: Arquitectura con hilos para mantener la interfaz responsiva durante operaciones
+- **Tema Oscuro Moderno**: Interfaz gráfica profesional con paleta oscura consistente
+- **Manejo de Errores Robusto**: Sistema de recuperación que continúa procesamiento ante fallos individuales
+- **Cancelación de Operaciones**: Control total sobre procesos en ejecución con botones de cancelación
+- **Validación Inteligente**: Verificación de conexiones, archivos compatibles y estados de MongoDB
 
 ## 📁 Estructura del Proyecto
 
+### Archivo Principal
 ```
 TRADUCTOR_ARCHIVOS/
-├── 1-extraer_texto_a mongodb.py              # CLI: Extracción de texto
-├── 1-extraer_texto_a mongodb_con_gui.py      # GUI: Extracción con interfaz gráfica
-├── 2-traducir_desde_mongodb.py               # CLI: Traducción automática
-├── 2-traducir_desde_mongodb_con_gui.py       # GUI: Traducción masiva con GUI
-├── 3-componer.py                            # GUI: Composición de texto traducido
-├── el_quijote.txt                           # Archivo de ejemplo (Don Quijote)
-├── el_quijote_traducido_al_ingles.txt        # Archivo generado (Don Quijote traducido)
-├── el_quijote_traducido_al_ingles.pdf        # Archivo generado (Don Quijote traducido en PDF)
-├── manual_traductor_texto.html              # Manual detallado en HTML
-├── .gitignore                              # Archivos ignorados por Git
-└── README.md                               # Este archivo
+├── traductor_documentos.py                  # ✅ APLICACIÓN COMPLETA UNIFICADA (PySide6)
+```
+
+### Scripts de Desarrollo y Debugging
+```
+TRADUCTOR_ARCHIVOS/
+├── debugeo/
+│   ├── 1-extraer_texto_a mongodb_con_gui.py   # Desarrollo: Extracción con GUI
+│   ├── 1-extraer_texto_a mongodb.py           # Desarrollo: Extracción CLI
+│   ├── 2-traducir_desde_mongodb_con_gui.py    # Desarrollo: Traducción con GUI
+│   ├── 2-traducir_desde_mongodb.py            # Desarrollo: Traducción CLI
+│   └── 3-componer.py                         # Desarrollo: Composición GUI
+```
+
+### Archivos de Ejemplo y Resultados
+```
+TRADUCTOR_ARCHIVOS/
+├── el_quijote.txt                           # 📖 Archivo de ejemplo (Don Quijote completo)
+├── el_quijote_traducido_al_ingles.txt        # ✅ Archivo generado (traducción completa)
+├── Caperucita Roja/
+│   ├── caperucita_roja_traducido_a_en.pdf    # ✅ Archivo generado (PDF traducción)
+│   └── caperucita_roja_traducido_a_en.txt    # ✅ Archivo generado (TXT traducción)
+├── El_Quijote/
+│   ├── el_quijote_traducido_al_ingles.pdf    # ✅ Archivo generado (PDF organizado)
+│   └── el_quijote_traducido_al_ingles.txt    # ✅ Archivo generado (TXT organizado)
+```
+
+### Documentación y Configuración
+```
+TRADUCTOR_ARCHIVOS/
+├── manual_traductor_texto.html              # 📚 Manual detallado en HTML
+├── .gitignore                              # ⚙️ Archivos ignorados por Git
+└── README.md                               # 📋 Este archivo
 ```
 
 ## 🔧 Requisitos del Sistema
@@ -111,7 +137,31 @@ curl http://localhost:11434/api/tags
 
 ## 🚀 Uso del Proyecto
 
-### Orden de Ejecución Recomendado
+### 🏆 Aplicación Unificada Recomendada - `traductor_documentos.py`
+
+Esta es la opción más recomendable por su interfaz completa y facilidad de uso:
+
+```bash
+# Ejecutar la aplicación completa integrada
+python traductor_documentos.py
+```
+
+**Características de la aplicación unificada:**
+- **Tres pestañas integradas**: Una interfaz completa para todo el proceso
+- **Flujo de trabajo secuencial**: Desde extracción hasta composición final
+- **Progreso global**: Barra de progreso y log unificado
+- **Selección de idiomas**: Soporte completo para español, inglés y francés
+- **Tema oscuro profesional**: Interfaz moderna y consistente
+- **Procesamiento asíncrono**: Mantén la interfaz responsiva durante operaciones
+
+**Flujo de uso típico:**
+1. **Pestaña 1 - Extraer**: Seleccionar archivo .txt o .pdf para procesar
+2. **Pestaña 2 - Traducir**: Elegir idiomas y colecciones a traducir
+3. **Pestaña 3 - Componer**: Generar archivos finales .txt y .pdf
+
+### Orden de Ejecución Recomendado (Scripts Individuales)
+Para usuarios que prefieren scripts separados o necesitan personalización avanzada:
+
 1. **Primero**: Ejecutar script de extracción para procesar archivos
 2. **Segundo**: Ejecutar script de traducción para traducir el contenido
 3. **Tercero**: Ejecutar script de composición para reconstruir archivos traducidos
@@ -201,9 +251,10 @@ Características avanzadas:
 
 ### Configuración por Defecto
 - **Base de datos**: `traducciones`
-- **Colección por defecto**: `el_quijote`
-- **Modelo Ollama**: `gemma3:4b`
-- **Dirección traducción**: Español → Inglés
+- **Colección por defecto**: Derivada del nombre del archivo
+- **Modelos Ollama**: `gemma3:4b` (recomendado)
+- **Idiomas soportados**: Español (es), Inglés (en), Francés (fr)
+- **Dirección traducción**: Configurable entre cualquier par de idiomas
 
 ## 🔍 Funcionamiento Detallado
 
@@ -224,29 +275,68 @@ El sistema divide textos en frases considerando:
 - **Señales Qt**: Comunicación segura entre hilos y interfaz
 - **Tema consistente**: Paleta oscura aplicada globalmente
 
+## 📈 Estado Actual del Proyecto
+
+### ✅ Progreso Completado
+- **🎯 Archivo Principal Unificado**: `traductor_documentos.py` integra todas las funcionalidades en una sola aplicación GUI con tres pestañas
+- **🔧 Scripts de Desarrollo**: Los archivos en la carpeta `debugeo/` representan el desarrollo modular original que ha sido consolidado
+- **📚 Archivos de Ejemplo**: Contenido literario procesado y traducido (Don Quijote, Caperucita Roja) disponible para pruebas
+- **🎨 Interfaz Completa**: Tema oscuro profesional aplicado consistentemente en toda la aplicación
+- **🌐 Soporte Multiidioma**: Traducción completa entre español, inglés y francés
+- **📄 Formatos Avanzados**: Generación automática de archivos .txt y .pdf con formato tipográfico profesional
+
+### 🚧 Arquitectura Evolutiva
+El proyecto evolucionó desde scripts separados (`debugeo/*.py`) hacia una **aplicación unificada** que mantiene todas las funcionalidades pero con una interfaz integrada más intuitiva y eficiente.
+
+### 🔄 Compatibilidad
+Los scripts en `debugeo/` siguen siendo funcionales y útiles para:
+- Desarrollo y debugging específicos
+- Personalización avanzada
+- Interfaces de línea de comandos
+- Integración con otros sistemas
+
 ## 🛠️ Personalización
 
-### Cambiar Modelo Ollama
+### Configuración de la Aplicación Unificada
 ```python
-# En los scripts de traducción
-payload = {
-    "model": "mistral",  # Cambiar por modelo disponible
-    "prompt": prompt,
-    "stream": False
+# traductor_documentos.py - Constantes principales
+DATABASE_NAME = "traducciones"
+OLLAMA_URL = "http://localhost:11434/api/generate"
+MODEL_NAME = "gemma3:4b"  # Cambiar por modelo Ollama disponible
+
+IDIOMA_CODES = ["es", "en", "fr"]  # Idiomas soportados
+IDIOMA_NAMES = {
+    "es": "Español",
+    "en": "English",
+    "fr": "Français"
 }
 ```
 
-### Modificar Idiomas
+### Opciones de Modelo Ollama
 ```python
-# Direcciones disponibles
-DIRECCION_EN_ES = ("en", "es")  # Inglés → Español
-DIRECCION_ES_EN = ("es", "en")  # Español → Inglés
+# Modelos recomendados para traducción
+MODEL_NAME = "gemma3:4b"        # Recomendado: Mejor rendimiento
+MODEL_NAME = "mistral"          # Alternativo: Más rápido
+MODEL_NAME = "llama3.2:3b"      # Ligero: Menos recursos
 ```
 
-### Configurar MongoDB
+### Idiomas Disponibles
 ```python
-# URL personalizada
-client = MongoClient("mongodb://user:pass@host:port/")
+# Todas las combinaciones posibles
+IDIOMA_CODES = ["es", "en", "fr"]
+# Ejemplos de direcciones:
+# "es" → "en": Español → Inglés
+# "en" → "fr": Inglés → Francés
+# "fr" → "es": Francés → Español
+```
+
+### Configuración Avanzada de MongoDB
+```python
+# URL personalizada para MongoDB
+mongo_url = "mongodb://user:pass@host:port/"
+
+# Base de datos alternativa
+DATABASE_NAME = "mis_traducciones"
 ```
 
 ## 🐛 Solución de Problemas
