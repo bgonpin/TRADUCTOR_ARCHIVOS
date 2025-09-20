@@ -20,6 +20,7 @@ Dependencias:
 # (El encabezado y las importaciones las mantuve iguales que en tu versión)
 import sys
 import os
+import re
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
                                QProgressBar, QTextEdit, QMessageBox, QFileDialog, QGroupBox,
                                QListWidget, QListWidgetItem, QComboBox, QCheckBox, QSplitter, QTabWidget, QLineEdit)
@@ -83,7 +84,7 @@ def traducir_con_ollama(texto: str, idioma_origen: str, idioma_destino: str) -> 
 
 
 def segmentar_frases(ruta_archivo: str):
-    """Segmenta archivo PDF o TXT en líneas."""
+    """Segmenta archivo PDF o TXT en frases."""
     frases = []
     contenido = ""
 
@@ -91,15 +92,20 @@ def segmentar_frases(ruta_archivo: str):
     if ext == ".txt":
         with open(ruta_archivo, "r", encoding="utf-8") as f:
             contenido = f.read()
+        frases = contenido.split('\n')
     elif ext == ".pdf":
         with open(ruta_archivo, "rb") as f:
             pdf_reader = PyPDF2.PdfReader(f)
             for page in pdf_reader.pages:
                 contenido += (page.extract_text() or "") + "\n"
+
+        # Para PDFs, reemplazar saltos de línea que no están precedidos por un punto con espacios
+        contenido = re.sub(r'(?<!\.)\n', ' ', contenido)
+
+        frases = contenido.split('\n')
     else:
         raise ValueError("Formato no soportado. Solo .txt y .pdf.")
 
-    frases = contenido.split('\n')
     return frases
 
 
@@ -190,7 +196,7 @@ class TranslationWorker(QObject):
                         collection_destino.insert_one({"_id": linea_numero, "linea": linea_texto})
                         processed_docs += 1
                         self.log.emit(f"Línea {linea_numero}: SKIP (vacía)")
-                    else:
+                    elif linea_texto.strip():
                         traduccion = traducir_con_ollama(linea_texto, self.source_lang, self.target_lang)
                         collection_destino.insert_one({"_id": linea_numero, "linea": traduccion})
                         processed_docs += 1
@@ -198,12 +204,24 @@ class TranslationWorker(QObject):
                         display_traduccion = traduccion[:80] + "..." if len(traduccion) > 80 else traduccion
                         self.log.emit(f"Línea {linea_numero}: '{display_traduccion}'")
 
-                    collection_progress = int((processed_docs / total_docs) * 100) if total_docs > 0 else 100
-                    overall_progress = int(((processed + collection_progress / 100) / total_collections) * 100)
-                    self.progress.emit(overall_progress)
+                        # Emit progress after each translation
+                        collection_progress = int((processed_docs / total_docs) * 100) if total_docs > 0 else 100
+                        overall_progress = min(100, int((processed * 100 + collection_progress) / total_collections))
+                        self.progress.emit(overall_progress)
+                    # Handle empty lines too
+                    if not linea_texto.strip():
+                        processed_docs += 1
+                        # Emit progress after each processed document
+                        collection_progress = int((processed_docs / total_docs) * 100) if total_docs > 0 else 100
+                        overall_progress = min(100, int((processed * 100 + collection_progress) / total_collections))
+                        self.progress.emit(overall_progress)
 
                 processed += 1
                 self.log.emit(f"Finalizada colección {collection_name}")
+
+                # Emit final progress for completed collection
+                overall_progress = min(100, int((processed * 100) / total_collections))
+                self.progress.emit(overall_progress)
 
             client.close()
             self.finished.emit(True, "Traducción completada.")
@@ -450,20 +468,13 @@ class MainWindow(QWidget):
 
         main_layout.addWidget(self.tab_widget)
 
-        # Global progress and log
-        self.progress_group = QGroupBox("Progreso Global")
-        progress_layout = QVBoxLayout()
-        self.global_progress = QProgressBar()
-        self.global_progress.setRange(0, 100)
-        self.global_progress.setValue(0)
-        progress_layout.addWidget(self.global_progress)
-
+        # Activity Log
         self.log_group = QGroupBox("Registro de Actividad")
         log_layout = QVBoxLayout()
         self.log_text = QTextEdit()
+        self.log_text.setReadOnly(True)
         log_layout.addWidget(self.log_text)
 
-        main_layout.addWidget(self.progress_group)
         main_layout.addWidget(self.log_group)
 
         self.setLayout(main_layout)
@@ -620,10 +631,11 @@ class MainWindow(QWidget):
             self.extraction_file_path = file_path
             self.extraction_file_label.setText(f"Archivo seleccionado: {os.path.basename(file_path)}")
             self.extract_btn.setEnabled(True)
-            self.log("Archivo seleccionado: " + os.path.basename(file_path))
+            self.log(f"Archivo seleccionado: {os.path.basename(file_path)}")
         else:
             self.extract_btn.setEnabled(False)
             self.extraction_file_label.setText("Archivo seleccionado: Ninguno")
+            QMessageBox.warning(self, "Error", "No se pudo seleccionar el archivo.")
 
     def load_collections(self):
         try:
@@ -646,7 +658,6 @@ class MainWindow(QWidget):
                 self.translate_btn.setEnabled(False)
 
             client.close()
-            self.log(f"Colecciones cargadas: {len(original_collections)} originales")
         except Exception as e:
             QMessageBox.warning(self, "Error", f"No se pudo cargar colecciones: {str(e)}")
 
@@ -670,7 +681,6 @@ class MainWindow(QWidget):
                 self.compose_btn.setEnabled(False)
 
             client.close()
-            self.log(f"Colecciones traducidas cargadas: {len(translated_collections)}")
         except Exception as e:
             QMessageBox.warning(self, "Error", f"No se pudo cargar colecciones traducidas: {str(e)}")
 
@@ -697,15 +707,12 @@ class MainWindow(QWidget):
             return
 
         self.worker = ExtractionWorker(self.extraction_file_path)
-        self.worker.progress.connect(self.global_progress.setValue)
-        self.worker.log.connect(self.log)
         self.worker.finished.connect(self.on_worker_finished)
 
         from PySide6.QtCore import QThread
         self.thread = QThread()
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
-        self.worker.finished.connect(self.thread.quit)
 
         self.extract_btn.setText("Extrayendo...")
         self.extract_btn.setEnabled(False)
@@ -736,9 +743,7 @@ class MainWindow(QWidget):
             return
 
         self.worker = TranslationWorker(collections, source_lang, target_lang)
-        self.worker.progress.connect(self.global_progress.setValue)
         self.worker.progress.connect(self.translation_progress.setValue)
-        self.worker.log.connect(self.log)
         self.worker.log.connect(self.log_translation)
         self.worker.finished.connect(self.on_worker_finished)
 
@@ -746,7 +751,7 @@ class MainWindow(QWidget):
         self.thread = QThread()
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
-        self.worker.finished.connect(self.thread.quit)
+        self.thread.finished.connect(self.thread.quit)
 
         # Clear translation log and reset progress
         self.translation_log.clear()
@@ -762,7 +767,6 @@ class MainWindow(QWidget):
             self.worker.cancel()
             self.translate_cancel_btn.setText("Cancelando...")
             self.translate_cancel_btn.setEnabled(False)
-            self.log("Progreso de traducción cancelado por el usuario.")
 
     def start_composition(self):
         selected_items = self.composition_list.selectedItems()
@@ -780,7 +784,6 @@ class MainWindow(QWidget):
             return
 
         self.worker = CompositionWorker(collections, save_dir, True)
-        self.worker.progress.connect(self.global_progress.setValue)
         self.worker.log.connect(self.log)
         self.worker.finished.connect(self.on_worker_finished)
 
@@ -788,16 +791,13 @@ class MainWindow(QWidget):
         self.thread = QThread()
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
-        self.worker.finished.connect(self.thread.quit)
+        self.thread.finished.connect(self.thread.quit)
 
         self.compose_btn.setText("Componiendo...")
         self.compose_btn.setEnabled(False)
         self.thread.start()
 
     def on_worker_finished(self, success, message):
-        self.global_progress.setValue(100 if success else 0)
-        self.log(message)
-
         # Reset buttons
         self.extract_btn.setText("Extraer Texto")
         self.extract_btn.setEnabled(True)
@@ -836,6 +836,8 @@ class MainWindow(QWidget):
         # Auto-scroll to bottom
         scrollbar = self.translation_log.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
+
+
 
 
 if __name__ == "__main__":
